@@ -6,8 +6,8 @@ const SHOPS_KEY = 'bg_shops';
 
 // Initial data cleared as per user request to manage their own specific products
 const INITIAL_PRODUCTS: ProductMaster[] = [
-    // Leaving one example that can be deleted, to show how it looks
-    { id: '1', name: 'Example Product', manufacturingCost: 0, defaultMrp: 0, defaultRetailPrice: 0 },
+  // Leaving one example that can be deleted, to show how it looks
+  { id: '1', name: 'Example Product', manufacturingCost: 0, defaultMrp: 0, defaultRetailPrice: 0 },
 ];
 
 export const StorageService = {
@@ -25,11 +25,11 @@ export const StorageService = {
       bills.push(bill);
     }
     localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
-    
+
     // Auto-save shop if it doesn't exist in master list
     const shops = StorageService.getShops();
     if (!shops.find(s => s.name.toLowerCase() === bill.shopName.toLowerCase())) {
-        StorageService.saveShop({ id: Date.now().toString(), name: bill.shopName });
+      StorageService.saveShop({ id: Date.now().toString(), name: bill.shopName });
     }
   },
 
@@ -85,11 +85,11 @@ export const StorageService = {
   updateShopAndBills: (shopId: string, newName: string) => {
     const shops = StorageService.getShops();
     const shopIndex = shops.findIndex(s => String(s.id) === String(shopId));
-    
+
     if (shopIndex === -1) return;
 
     const oldName = shops[shopIndex].name;
-    
+
     // 1. Update Shop Master
     shops[shopIndex].name = newName;
     localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
@@ -98,14 +98,14 @@ export const StorageService = {
     const bills = StorageService.getBills();
     let billsUpdated = false;
     bills.forEach(b => {
-        if (b.shopName === oldName) {
-            b.shopName = newName;
-            billsUpdated = true;
-        }
+      if (b.shopName === oldName) {
+        b.shopName = newName;
+        billsUpdated = true;
+      }
     });
 
     if (billsUpdated) {
-        localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
+      localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
     }
   },
 
@@ -120,5 +120,23 @@ export const StorageService = {
     // Simple case-insensitive match
     const product = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
     return product ? product.manufacturingCost : 0;
+  },
+
+  getFullExport: () => {
+    return {
+      bills: StorageService.getBills(),
+      products: StorageService.getProducts(),
+      shops: StorageService.getShops(),
+      exportDate: new Date().toISOString()
+    };
+  },
+
+  importFullData: (data: any) => {
+    if (!data || !data.bills || !data.products || !data.shops) {
+      throw new Error('Invalid data format');
+    }
+    localStorage.setItem(BILLS_KEY, JSON.stringify(data.bills));
+    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(data.products));
+    localStorage.setItem(SHOPS_KEY, JSON.stringify(data.shops));
   }
 };

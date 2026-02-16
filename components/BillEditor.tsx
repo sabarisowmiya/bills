@@ -260,7 +260,8 @@ export const BillEditor: React.FC<BillEditorProps> = ({ initialData, onSave, onC
                       </button>
                     </td>
                   </tr>
-                )}})}
+                  );
+                })}
                 {items.length === 0 && (
                     <tr>
                         <td colSpan={5} className="py-8 text-center text-gray-400 text-sm italic">
