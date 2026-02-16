@@ -5,7 +5,44 @@ import { StorageService } from "./storage";
 
 // Initialize Gemini Client (Stable SDK)
 const genAI = new GoogleGenerativeAI("***REMOVED***");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+const generateWithFallback = async (prompt: string, base64Image: string) => {
+  const modelsToTry = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash-001",
+    "gemini-1.5-pro"
+  ];
+
+  let lastError;
+
+  for (const modelName of modelsToTry) {
+    try {
+      console.log(`[Gemini] Attempting with model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: base64Image,
+            mimeType: "image/jpeg",
+          },
+        },
+      ]);
+
+      const response = await result.response;
+      const text = response.text();
+      console.log(`[Gemini] Success with model: ${modelName}`);
+      return text;
+    } catch (error: any) {
+      console.warn(`[Gemini] Model ${modelName} failed:`, error.message);
+      lastError = error;
+      // Continue to next model
+    }
+  }
+  throw lastError;
+};
 
 export const extractBillData = async (base64Image: string): Promise<Partial<Bill>> => {
   try {
@@ -49,18 +86,7 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       }
     `;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Image,
-          mimeType: "image/jpeg",
-        },
-      },
-    ]);
-
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateWithFallback(prompt, base64Image);
 
     if (!text) throw new Error("No text returned from Gemini API");
 
