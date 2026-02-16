@@ -48,12 +48,12 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       }
     `;
 
-    // Try gemini-1.5-flash-latest first (Best availability)
+    // Try gemini-pro-vision first (Most stable availability on free tier/Netlify)
     let response;
     try {
-      console.log("Attempting gemini-1.5-flash-latest...");
+      console.log("Attempting gemini-pro-vision...");
       response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-pro-vision",
         contents: {
           parts: [
             { inlineData: { mimeType: "image/jpeg", data: base64Image } },
@@ -62,10 +62,10 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
         },
       });
     } catch (e: any) {
-      console.warn("gemini-1.5-flash-latest failed, trying gemini-1.5-flash-001...", e.message);
-      // Fallback to specific version
+      console.warn("gemini-pro-vision failed, trying gemini-1.5-flash...", e.message);
+      // Fallback to Flash
       response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-001",
+        model: "gemini-1.5-flash",
         contents: {
           parts: [
             { inlineData: { mimeType: "image/jpeg", data: base64Image } },
