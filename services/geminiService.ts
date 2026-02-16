@@ -4,14 +4,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { StorageService } from "./storage";
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: "***REMOVED***" });
 
 export const extractBillData = async (base64Image: string): Promise<Partial<Bill>> => {
   try {
     // Fetch known data to guide the AI
     const products = StorageService.getProducts();
     const shops = StorageService.getShops();
-    
+
     const productNames = products.map(p => p.name).join(', ');
     const shopNames = shops.map(s => s.name).join(', ');
 
