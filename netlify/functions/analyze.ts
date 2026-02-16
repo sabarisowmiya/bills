@@ -39,9 +39,9 @@ const handler: Handler = async (event) => {
                 body: JSON.stringify({ text }),
             };
         } catch (flashError: any) {
-            console.warn(`Flash failed: ${flashError.message}. Trying Pro Vision.`);
-            // Fallback
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+            console.warn(`Flash failed: ${flashError.message}. Trying 1.5 Pro.`);
+            // Fallback to Pro (sometimes more available than Vision)
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
             const result = await fallbackModel.generateContent([
                 prompt,
                 {
