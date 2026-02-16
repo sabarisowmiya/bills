@@ -1,51 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Bill } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 import { StorageService } from "./storage";
 
-// Initialize Gemini Client (Stable SDK)
-const genAI = new GoogleGenerativeAI("***REMOVED***");
-
-console.log("[Gemini Service] Initializing with fallback strategy v2");
-
-const generateWithFallback = async (prompt: string, base64Image: string) => {
-  const modelsToTry = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-001",
-    "gemini-1.5-pro",
-    "gemini-pro-vision"
-  ];
-
-  let lastError;
-
-  for (const modelName of modelsToTry) {
-    try {
-      console.log(`[Gemini] Attempting with model: ${modelName}`);
-      const model = genAI.getGenerativeModel({ model: modelName });
-
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: "image/jpeg",
-          },
-        },
-      ]);
-
-      const response = await result.response;
-      const text = response.text();
-      console.log(`[Gemini] Success with model: ${modelName}`);
-      return text;
-    } catch (error: any) {
-      console.warn(`[Gemini] Model ${modelName} failed:`, error.message);
-      lastError = error;
-      // Continue to next model
-    }
-  }
-  throw lastError;
-};
+// Initialize Gemini Client (Experimental SDK - Reverted per user request)
+const ai = new GoogleGenAI({ apiKey: "***REMOVED***" });
 
 export const extractBillData = async (base64Image: string): Promise<Partial<Bill>> => {
   try {
@@ -89,9 +48,27 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       }
     `;
 
-    const text = await generateWithFallback(prompt, base64Image);
+    // Using gemini-1.5-flash (Standard model name for experimental SDK too)
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Image,
+            },
+          },
+          {
+            text: prompt,
+          },
+        ],
+      },
+      // Config removed to avoid schema validation errors, relying on prompt instruction
+    });
 
-    if (!text) throw new Error("No text returned from Gemini API");
+    const text = response.text;
+    if (!text) throw new Error("No data returned from AI");
 
     const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
@@ -123,7 +100,7 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
 
   } catch (error: any) {
     console.error("Gemini Extraction Error:", error);
-    // Propagate the actual error message
+    // Propagate better message
     throw new Error(error.message || "Unknown error during AI extraction");
   }
 };
