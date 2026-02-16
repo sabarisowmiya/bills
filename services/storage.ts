@@ -34,7 +34,8 @@ export const StorageService = {
   },
 
   deleteBill: (id: string) => {
-    const bills = StorageService.getBills().filter(b => b.id !== id);
+    // Convert to string for safe comparison
+    const bills = StorageService.getBills().filter(b => String(b.id) !== String(id));
     localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
   },
 
@@ -59,7 +60,8 @@ export const StorageService = {
   },
 
   deleteProduct: (id: string) => {
-    const products = StorageService.getProducts().filter(p => p.id !== id);
+    // Convert to string for safe comparison
+    const products = StorageService.getProducts().filter(p => String(p.id) !== String(id));
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   },
 
@@ -79,8 +81,37 @@ export const StorageService = {
     localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
   },
 
+  // Rename a shop and update all historical bills associated with it
+  updateShopAndBills: (shopId: string, newName: string) => {
+    const shops = StorageService.getShops();
+    const shopIndex = shops.findIndex(s => String(s.id) === String(shopId));
+    
+    if (shopIndex === -1) return;
+
+    const oldName = shops[shopIndex].name;
+    
+    // 1. Update Shop Master
+    shops[shopIndex].name = newName;
+    localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
+
+    // 2. Update all Bills
+    const bills = StorageService.getBills();
+    let billsUpdated = false;
+    bills.forEach(b => {
+        if (b.shopName === oldName) {
+            b.shopName = newName;
+            billsUpdated = true;
+        }
+    });
+
+    if (billsUpdated) {
+        localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
+    }
+  },
+
   deleteShop: (id: string) => {
-    const shops = StorageService.getShops().filter(s => s.id !== id);
+    // Convert to string for safe comparison
+    const shops = StorageService.getShops().filter(s => String(s.id) !== String(id));
     localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
   },
 

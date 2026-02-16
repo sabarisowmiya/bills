@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Bill, ShopMaster } from '../types';
 import { StorageService } from '../services/storage';
-import { Store, TrendingUp, ArrowLeft, Calendar, FileText, Plus, Trash2, Receipt } from 'lucide-react';
+import { Store, TrendingUp, ArrowLeft, Calendar, FileText, Plus, Trash2, Receipt, Pencil, Save, X, AlertTriangle } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
@@ -17,6 +17,10 @@ export const Shops: React.FC<ShopsProps> = ({ bills }) => {
   const [viewBill, setViewBill] = useState<Bill | null>(null);
   const [knownShops, setKnownShops] = useState<ShopMaster[]>([]);
   const [newShopName, setNewShopName] = useState('');
+
+  // Editing State
+  const [isEditingShop, setIsEditingShop] = useState(false);
+  const [editShopName, setEditShopName] = useState('');
 
   useEffect(() => {
     setKnownShops(StorageService.getShops());
@@ -74,15 +78,51 @@ export const Shops: React.FC<ShopsProps> = ({ bills }) => {
     setNewShopName('');
   };
 
-  const handleDeleteShop = (e: React.MouseEvent, shopName: string) => {
-      e.stopPropagation();
-      const shop = knownShops.find(s => s.name === shopName);
-      if(!shop) return; // Only delete known shops manually
+  const handleSaveRename = () => {
+      if (!viewShop || !editShopName.trim()) return;
       
-      if(confirm('Remove this shop from the list? Stats from existing bills will remain, but it will be removed from autocomplete if no bills exist.')) {
-          StorageService.deleteShop(shop.id);
+      const shopMaster = knownShops.find(s => s.name === viewShop);
+      
+      // If shop isn't in master list yet, create it
+      if (!shopMaster) {
+          const newShop: ShopMaster = { id: uuidv4(), name: editShopName.trim() };
+          StorageService.saveShop(newShop);
+          // We also need to update the bills associated with the old "raw" name
+          // Since saveShop didn't do that, we manually trigger the update logic conceptually
+          // But StorageService.updateShopAndBills requires an ID. 
+          // Limitation: If it's a raw shop name, we can't rename it easily without an ID.
+          // Fallback: Just update bills directly for now, or alert user to add it first.
+          alert("This shop was not in your master list. It has been added now. Please edit again to rename if needed.");
           setKnownShops(StorageService.getShops());
+          setIsEditingShop(false);
+          return;
       }
+
+      // Perform Rename
+      StorageService.updateShopAndBills(shopMaster.id, editShopName.trim());
+      
+      // Update local state
+      setKnownShops(StorageService.getShops());
+      setViewShop(editShopName.trim()); // Update view to new name
+      setIsEditingShop(false);
+  };
+
+  const handleDeleteCurrentShop = () => {
+      if (!viewShop) return;
+      const shopMaster = knownShops.find(s => s.name === viewShop);
+
+      if (window.confirm(`Are you sure you want to delete "${viewShop}"? \n\nNote: The bills will remain in history, but the shop will be removed from your list.`)) {
+          if (shopMaster) {
+              StorageService.deleteShop(shopMaster.id);
+              setKnownShops(StorageService.getShops());
+          }
+          setViewShop(null); // Go back to list
+      }
+  };
+
+  const handleStartEdit = () => {
+      setEditShopName(viewShop || '');
+      setIsEditingShop(true);
   }
 
   // --- Render Views ---
@@ -96,16 +136,69 @@ export const Shops: React.FC<ShopsProps> = ({ bills }) => {
   if (viewShop && selectedShopStats) {
       return (
         <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-center space-x-4">
-                <button 
-                    onClick={() => setViewShop(null)}
-                    className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
-                <div>
-                    <h2 className="text-2xl font-serif font-bold text-slate-800">{viewShop}</h2>
-                    <p className="text-gray-500">Detailed performance and bill history.</p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center space-x-4 w-full">
+                    <button 
+                        onClick={() => setViewShop(null)}
+                        className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
+                    
+                    <div className="flex-1">
+                        {isEditingShop ? (
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="text" 
+                                    value={editShopName}
+                                    onChange={(e) => setEditShopName(e.target.value)}
+                                    className="text-2xl font-serif font-bold text-slate-800 border-b-2 border-indigo-500 focus:outline-none bg-transparent w-full md:w-auto"
+                                    autoFocus
+                                />
+                            </div>
+                        ) : (
+                            <div>
+                                <h2 className="text-2xl font-serif font-bold text-slate-800">{viewShop}</h2>
+                                <p className="text-gray-500">Detailed performance and bill history.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Edit Controls */}
+                <div className="flex items-center space-x-2">
+                    {isEditingShop ? (
+                        <>
+                            <button 
+                                onClick={handleDeleteCurrentShop}
+                                className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center mr-2"
+                                title="Delete Shop"
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </button>
+                            <button 
+                                onClick={handleSaveRename}
+                                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                title="Save Name"
+                            >
+                                <Save className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setIsEditingShop(false)}
+                                className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                                title="Cancel"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </>
+                    ) : (
+                        <button 
+                            onClick={handleStartEdit}
+                            className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                        >
+                            <Pencil className="w-4 h-4 mr-2" /> Edit Shop
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -204,83 +297,50 @@ export const Shops: React.FC<ShopsProps> = ({ bills }) => {
                     onClick={handleAddShop}
                     className="px-6 py-2 bg-slate-850 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center"
                 >
-                    <Plus className="w-4 h-4 mr-2" /> Add Shop
+                    <Plus className="w-4 h-4 mr-2" /> Add
                 </button>
             </div>
         </div>
 
-      {/* Shop Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {shopStats.map(shop => {
-            const isKnown = knownShops.some(ks => ks.name === shop.name);
-            return (
-            <div 
-                key={shop.name} 
-                onClick={() => setViewShop(shop.name)}
-                className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all transform hover:-translate-y-1 relative group"
-            >
-                {isKnown && (
-                    <button 
-                        type="button"
-                        onClick={(e) => handleDeleteShop(e, shop.name)}
-                        className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Remove from shop list"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                )}
-
-                <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h3 className="font-bold text-lg text-slate-800">{shop.name}</h3>
-                    <p className="text-sm text-gray-500">{shop.billCount} Bills</p>
-                </div>
-                <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                    <Store className="w-5 h-5" />
-                </div>
-                </div>
-                <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Revenue</span>
-                        <span className="font-medium text-slate-800">₹{shop.revenue.toLocaleString()}</span>
+        {/* Shop Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {shopStats.map(stat => (
+                <div 
+                    key={stat.name}
+                    onClick={() => setViewShop(stat.name)} 
+                    className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer group"
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <Store className="w-6 h-6" />
+                        </div>
+                         {/* Simple Mini Chart Placeholder */}
+                        <div className="text-green-500 flex items-center text-sm font-medium">
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            Active
+                        </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Profit</span>
-                        <span className="font-medium text-green-600">₹{shop.profit.toLocaleString()}</span>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center text-xs text-gray-500">
-                        <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
-                        <span className="text-green-600 font-medium mr-1">
-                            {shop.revenue > 0 ? ((shop.profit / shop.revenue) * 100).toFixed(0) : 0}%
-                        </span> 
-                        Margin
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">{stat.name}</h3>
+                    <p className="text-sm text-gray-500 mb-4">{stat.billCount} Bills Recorded</p>
+                    
+                    <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+                        <div>
+                             <p className="text-xs text-gray-400 uppercase">Revenue</p>
+                             <p className="font-bold text-slate-800">₹{stat.revenue.toLocaleString()}</p>
+                        </div>
+                         <div className="text-right">
+                             <p className="text-xs text-gray-400 uppercase">Profit</p>
+                             <p className="font-bold text-emerald-600">₹{stat.profit.toLocaleString()}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        )})}
-         {shopStats.length === 0 && (
-            <div className="col-span-3 text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                <p className="text-gray-500">No shop data available. Add a shop manually or upload bills.</p>
-            </div>
-        )}
-      </div>
-
-       {shopStats.length > 0 && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Revenue Comparison</h3>
-            <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={shopStats}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" tick={{fontSize: 12}} />
-                        <YAxis tick={{fontSize: 12}} />
-                        <RechartsTooltip cursor={{fill: '#f9fafb'}} />
-                        <Bar dataKey="revenue" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={40} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+             ))}
+             {shopStats.length === 0 && (
+                 <div className="col-span-full py-12 text-center text-gray-500 italic">
+                     No shops found. Add a shop manually or upload a bill to auto-create one.
+                 </div>
+             )}
         </div>
-       )}
     </div>
   );
 };

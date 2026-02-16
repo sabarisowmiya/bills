@@ -78,7 +78,7 @@ export const BillEditor: React.FC<BillEditorProps> = ({ initialData, onSave, onC
   };
 
   const handleDeleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+    setItems(prevItems => prevItems.filter(item => item.id !== id));
   };
 
   const handleSave = () => {
