@@ -26,17 +26,17 @@ export const BillUpload: React.FC<BillUploadProps> = ({ onExtractionComplete, on
     // Process
     setIsProcessing(true);
     try {
-        const base64 = await fileToBase64(file);
-        // Remove header from base64 string if present (Gemini expects raw base64 usually, but SDK handles helper)
-        // The helper "inlineData" in SDK needs base64 string without prefix data:image/...;base64,
-        const base64Data = base64.split(',')[1]; 
-        
-        const extractedData = await extractBillData(base64Data);
-        onExtractionComplete(extractedData);
+      const base64 = await fileToBase64(file);
+      // Remove header from base64 string if present (Gemini expects raw base64 usually, but SDK handles helper)
+      // The helper "inlineData" in SDK needs base64 string without prefix data:image/...;base64,
+      const base64Data = base64.split(',')[1];
+
+      const extractedData = await extractBillData(base64Data);
+      onExtractionComplete(extractedData);
     } catch (err) {
-        console.error(err);
-        setError("Failed to extract data. Please try again or enter manually.");
-        setIsProcessing(false);
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to extract data. Please try again or enter manually.");
+      setIsProcessing(false);
     }
   };
 
@@ -79,15 +79,15 @@ export const BillUpload: React.FC<BillUploadProps> = ({ onExtractionComplete, on
             <p className="text-indigo-600 font-medium animate-pulse">Analyzing bill with AI...</p>
           </div>
         ) : previewUrl ? (
-            <div className="relative">
-                <img src={previewUrl} alt="Preview" className="max-h-96 mx-auto rounded-lg shadow-md" />
-                <button 
-                    onClick={reset}
-                    className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg text-red-500 hover:bg-red-50"
-                >
-                    <X className="w-6 h-6" />
-                </button>
-            </div>
+          <div className="relative">
+            <img src={previewUrl} alt="Preview" className="max-h-96 mx-auto rounded-lg shadow-md" />
+            <button
+              onClick={reset}
+              className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg text-red-500 hover:bg-red-50"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         ) : (
           <div className="py-12 space-y-6">
             <div className="flex justify-center space-x-4 text-gray-400">

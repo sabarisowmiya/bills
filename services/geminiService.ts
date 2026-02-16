@@ -1,10 +1,11 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Bill } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 import { StorageService } from "./storage";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: "***REMOVED***" });
+// Initialize Gemini Client (Stable SDK)
+const genAI = new GoogleGenerativeAI("***REMOVED***");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export const extractBillData = async (base64Image: string): Promise<Partial<Bill>> => {
   try {
@@ -48,28 +49,31 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       }
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Image,
+          mimeType: "image/jpeg",
+        },
       },
-    });
+    ]);
 
-    const text = response.text;
-    if (!text) throw new Error("No data returned from AI");
+    const response = await result.response;
+    const text = response.text();
+
+    if (!text) throw new Error("No text returned from Gemini API");
 
     const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(jsonString);
+
+    let data;
+    try {
+      data = JSON.parse(jsonString);
+    } catch (e) {
+      console.error("JSON Parse Error:", e);
+      console.log("Raw Text:", text);
+      throw new Error("Failed to parse AI response. The bill might be unclear.");
+    }
 
     // Hydrate with IDs
     const items = (data.items || []).map((item: any) => ({
@@ -88,8 +92,9 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       createdAt: Date.now(),
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Extraction Error:", error);
-    throw error;
+    // Propagate the actual error message
+    throw new Error(error.message || "Unknown error during AI extraction");
   }
 };
