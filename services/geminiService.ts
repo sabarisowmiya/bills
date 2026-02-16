@@ -35,10 +35,21 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       - Total
       
       Ensure numeric values are numbers.
+
+      RETURN JSON ONLY in the following format:
+      {
+        "shopName": "string",
+        "invoiceNumber": "string",
+        "date": "YYYY-MM-DD",
+        "items": [
+          { "productName": "string", "retailPrice": number, "quantity": number, "total": number }
+        ],
+        "totalAmount": number
+      }
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: {
         parts: [
           {
@@ -52,38 +63,13 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
           },
         ],
       },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            shopName: { type: Type.STRING },
-            invoiceNumber: { type: Type.STRING },
-            date: { type: Type.STRING, description: "Format YYYY-MM-DD" },
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  productName: { type: Type.STRING },
-                  retailPrice: { type: Type.NUMBER },
-                  quantity: { type: Type.NUMBER },
-                  total: { type: Type.NUMBER },
-                },
-                required: ["productName", "quantity", "total"],
-              },
-            },
-            totalAmount: { type: Type.NUMBER },
-          },
-          required: ["shopName", "items", "totalAmount"],
-        },
-      },
     });
 
     const text = response.text;
     if (!text) throw new Error("No data returned from AI");
 
-    const data = JSON.parse(text);
+    const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(jsonString);
 
     // Hydrate with IDs
     const items = (data.items || []).map((item: any) => ({
