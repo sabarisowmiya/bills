@@ -6,12 +6,15 @@ import { StorageService } from "./storage";
 // Initialize Gemini Client (Stable SDK)
 const genAI = new GoogleGenerativeAI("***REMOVED***");
 
+console.log("[Gemini Service] Initializing with fallback strategy v2");
+
 const generateWithFallback = async (prompt: string, base64Image: string) => {
   const modelsToTry = [
-    "gemini-1.5-flash",
     "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
     "gemini-1.5-flash-001",
-    "gemini-1.5-pro"
+    "gemini-1.5-pro",
+    "gemini-pro-vision"
   ];
 
   let lastError;
