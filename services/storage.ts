@@ -1,142 +1,236 @@
 import { Bill, ProductMaster, ShopMaster } from '../types';
 
-const BILLS_KEY = 'bg_bills';
-const PRODUCTS_KEY = 'bg_products';
-const SHOPS_KEY = 'bg_shops';
+// API base path
+const API_BASE = '/.netlify/functions';
 
-// Initial data cleared as per user request to manage their own specific products
+// Initial data for first-time setup
 const INITIAL_PRODUCTS: ProductMaster[] = [
-  // Leaving one example that can be deleted, to show how it looks
   { id: '1', name: 'Example Product', manufacturingCost: 0, defaultMrp: 0, defaultRetailPrice: 0 },
 ];
 
 export const StorageService = {
-  getBills: (): Bill[] => {
-    const data = localStorage.getItem(BILLS_KEY);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveBill: (bill: Bill) => {
-    const bills = StorageService.getBills();
-    const existingIndex = bills.findIndex(b => b.id === bill.id);
-    if (existingIndex >= 0) {
-      bills[existingIndex] = bill;
-    } else {
-      bills.push(bill);
-    }
-    localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
-
-    // Auto-save shop if it doesn't exist in master list
-    const shops = StorageService.getShops();
-    if (!shops.find(s => s.name.toLowerCase() === bill.shopName.toLowerCase())) {
-      StorageService.saveShop({ id: Date.now().toString(), name: bill.shopName });
+  // ===== BILLS =====
+  getBills: async (): Promise<Bill[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/bills`);
+      if (!response.ok) throw new Error('Failed to fetch bills');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching bills:', error);
+      return [];
     }
   },
 
-  deleteBill: (id: string) => {
-    // Convert to string for safe comparison
-    const bills = StorageService.getBills().filter(b => String(b.id) !== String(id));
-    localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
+  saveBill: async (bill: Bill): Promise<void> => {
+    try {
+      const bills = await StorageService.getBills();
+      const existingIndex = bills.findIndex(b => b.id === bill.id);
+
+      if (existingIndex >= 0) {
+        // Update existing bill
+        await fetch(`${API_BASE}/bills`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bill)
+        });
+      } else {
+        // Add new bill
+        await fetch(`${API_BASE}/bills`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bill)
+        });
+      }
+
+      // Auto-save shop if it doesn't exist
+      const shops = await StorageService.getShops();
+      if (!shops.find(s => s.name.toLowerCase() === bill.shopName.toLowerCase())) {
+        await StorageService.saveShop({ id: Date.now().toString(), name: bill.shopName });
+      }
+    } catch (error) {
+      console.error('Error saving bill:', error);
+      throw error;
+    }
   },
 
-  getProducts: (): ProductMaster[] => {
-    const data = localStorage.getItem(PRODUCTS_KEY);
-    if (!data) {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(INITIAL_PRODUCTS));
+  deleteBill: async (id: string): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/bills`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: String(id) })
+      });
+    } catch (error) {
+      console.error('Error deleting bill:', error);
+      throw error;
+    }
+  },
+
+  // ===== PRODUCTS =====
+  getProducts: async (): Promise<ProductMaster[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/products`);
+      if (!response.ok) throw new Error('Failed to fetch products');
+      const products = await response.json();
+
+      // Initialize with example product if empty
+      if (products.length === 0) {
+        for (const product of INITIAL_PRODUCTS) {
+          await StorageService.saveProduct(product);
+        }
+        return INITIAL_PRODUCTS;
+      }
+
+      return products;
+    } catch (error) {
+      console.error('Error fetching products:', error);
       return INITIAL_PRODUCTS;
     }
-    return JSON.parse(data);
   },
 
-  saveProduct: (product: ProductMaster) => {
-    const products = StorageService.getProducts();
-    const existingIndex = products.findIndex(p => p.id === product.id);
-    if (existingIndex >= 0) {
-      products[existingIndex] = product;
-    } else {
-      products.push(product);
-    }
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  },
+  saveProduct: async (product: ProductMaster): Promise<void> => {
+    try {
+      const products = await StorageService.getProducts();
+      const existingIndex = products.findIndex(p => p.id === product.id);
 
-  deleteProduct: (id: string) => {
-    // Convert to string for safe comparison
-    const products = StorageService.getProducts().filter(p => String(p.id) !== String(id));
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  },
-
-  getShops: (): ShopMaster[] => {
-    const data = localStorage.getItem(SHOPS_KEY);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveShop: (shop: ShopMaster) => {
-    const shops = StorageService.getShops();
-    const existingIndex = shops.findIndex(s => s.id === shop.id);
-    if (existingIndex >= 0) {
-      shops[existingIndex] = shop;
-    } else {
-      shops.push(shop);
-    }
-    localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
-  },
-
-  // Rename a shop and update all historical bills associated with it
-  updateShopAndBills: (shopId: string, newName: string) => {
-    const shops = StorageService.getShops();
-    const shopIndex = shops.findIndex(s => String(s.id) === String(shopId));
-
-    if (shopIndex === -1) return;
-
-    const oldName = shops[shopIndex].name;
-
-    // 1. Update Shop Master
-    shops[shopIndex].name = newName;
-    localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
-
-    // 2. Update all Bills
-    const bills = StorageService.getBills();
-    let billsUpdated = false;
-    bills.forEach(b => {
-      if (b.shopName === oldName) {
-        b.shopName = newName;
-        billsUpdated = true;
+      if (existingIndex >= 0) {
+        await fetch(`${API_BASE}/products`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product)
+        });
+      } else {
+        await fetch(`${API_BASE}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product)
+        });
       }
-    });
-
-    if (billsUpdated) {
-      localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
+    } catch (error) {
+      console.error('Error saving product:', error);
+      throw error;
     }
   },
 
-  deleteShop: (id: string) => {
-    // Convert to string for safe comparison
-    const shops = StorageService.getShops().filter(s => String(s.id) !== String(id));
-    localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
+  deleteProduct: async (id: string): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/products`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: String(id) })
+      });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
   },
 
-  getManufacturingCost: (productName: string): number => {
-    const products = StorageService.getProducts();
-    // Simple case-insensitive match
+  // ===== SHOPS =====
+  getShops: async (): Promise<ShopMaster[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/shops`);
+      if (!response.ok) throw new Error('Failed to fetch shops');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching shops:', error);
+      return [];
+    }
+  },
+
+  saveShop: async (shop: ShopMaster): Promise<void> => {
+    try {
+      const shops = await StorageService.getShops();
+      const existingIndex = shops.findIndex(s => s.id === shop.id);
+
+      if (existingIndex >= 0) {
+        await fetch(`${API_BASE}/shops`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shop)
+        });
+      } else {
+        await fetch(`${API_BASE}/shops`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shop)
+        });
+      }
+    } catch (error) {
+      console.error('Error saving shop:', error);
+      throw error;
+    }
+  },
+
+  updateShopAndBills: async (shopId: string, newName: string): Promise<void> => {
+    try {
+      const shops = await StorageService.getShops();
+      const shopIndex = shops.findIndex(s => String(s.id) === String(shopId));
+
+      if (shopIndex === -1) return;
+
+      const oldName = shops[shopIndex].name;
+
+      // 1. Update Shop Master
+      shops[shopIndex].name = newName;
+      await StorageService.saveShop(shops[shopIndex]);
+
+      // 2. Update all Bills
+      const bills = await StorageService.getBills();
+      for (const bill of bills) {
+        if (bill.shopName === oldName) {
+          bill.shopName = newName;
+          await StorageService.saveBill(bill);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating shop and bills:', error);
+      throw error;
+    }
+  },
+
+  deleteShop: async (id: string): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/shops`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: String(id) })
+      });
+    } catch (error) {
+      console.error('Error deleting shop:', error);
+      throw error;
+    }
+  },
+
+  // ===== UTILITY =====
+  getManufacturingCost: async (productName: string): Promise<number> => {
+    const products = await StorageService.getProducts();
     const product = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
     return product ? product.manufacturingCost : 0;
   },
 
-  getFullExport: () => {
+  getFullExport: async () => {
     return {
-      bills: StorageService.getBills(),
-      products: StorageService.getProducts(),
-      shops: StorageService.getShops(),
+      bills: await StorageService.getBills(),
+      products: await StorageService.getProducts(),
+      shops: await StorageService.getShops(),
       exportDate: new Date().toISOString()
     };
   },
 
-  importFullData: (data: any) => {
+  importFullData: async (data: any): Promise<void> => {
     if (!data || !data.bills || !data.products || !data.shops) {
       throw new Error('Invalid data format');
     }
-    localStorage.setItem(BILLS_KEY, JSON.stringify(data.bills));
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(data.products));
-    localStorage.setItem(SHOPS_KEY, JSON.stringify(data.shops));
+
+    // Import all data
+    for (const bill of data.bills) {
+      await StorageService.saveBill(bill);
+    }
+    for (const product of data.products) {
+      await StorageService.saveProduct(product);
+    }
+    for (const shop of data.shops) {
+      await StorageService.saveShop(shop);
+    }
   }
 };
