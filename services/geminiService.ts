@@ -48,24 +48,32 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
       }
     `;
 
-    // Using gemini-1.5-flash (Standard model name for experimental SDK too)
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-      // Config removed to avoid schema validation errors, relying on prompt instruction
-    });
+    // Try gemini-1.5-flash-latest first (Best availability)
+    let response;
+    try {
+      console.log("Attempting gemini-1.5-flash-latest...");
+      response = await ai.models.generateContent({
+        model: "gemini-1.5-flash-latest",
+        contents: {
+          parts: [
+            { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+            { text: prompt },
+          ],
+        },
+      });
+    } catch (e: any) {
+      console.warn("gemini-1.5-flash-latest failed, trying gemini-1.5-flash-001...", e.message);
+      // Fallback to specific version
+      response = await ai.models.generateContent({
+        model: "gemini-1.5-flash-001",
+        contents: {
+          parts: [
+            { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+            { text: prompt },
+          ],
+        },
+      });
+    }
 
     const text = response.text;
     if (!text) throw new Error("No data returned from AI");
