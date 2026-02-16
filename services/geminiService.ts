@@ -3,7 +3,7 @@ import { Bill } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 import { StorageService } from "./storage";
 
-// Initialize Gemini Client - ORIGINAL WORKING CONFIG
+// Initialize Gemini Client - Updated with new API key
 const ai = new GoogleGenAI({ apiKey: "***REMOVED***" });
 
 export const extractBillData = async (base64Image: string): Promise<Partial<Bill>> => {
@@ -49,7 +49,7 @@ export const extractBillData = async (base64Image: string): Promise<Partial<Bill
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-pro-vision",
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
