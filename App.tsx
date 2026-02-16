@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [pendingBillData, setPendingBillData] = useState<Partial<Bill> | null>(null);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check session storage for persistence
@@ -29,20 +28,8 @@ const App: React.FC = () => {
     if (savedAuth === 'true') {
       setIsAuthenticated(true);
     }
-
-    // Load data from API
-    const loadData = async () => {
-      try {
-        const billsData = await StorageService.getBills();
-        setBills(billsData);
-      } catch (error) {
-        console.error('Failed to load bills:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+    // Load data on mount
+    setBills(StorageService.getBills());
   }, []);
 
   const handleLogin = (status: boolean) => {
@@ -68,32 +55,20 @@ const App: React.FC = () => {
     setPendingBillData({});
   };
 
-  const handleSaveBill = async (bill: Bill) => {
-    try {
-      await StorageService.saveBill(bill);
-      const updatedBills = await StorageService.getBills();
-      setBills(updatedBills);
-      setPendingBillData(null);
-      setCurrentView(AppView.DASHBOARD);
-    } catch (error) {
-      console.error('Failed to save bill:', error);
-      alert('Failed to save bill. Please try again.');
-    }
+  const handleSaveBill = (bill: Bill) => {
+    StorageService.saveBill(bill);
+    setBills(StorageService.getBills());
+    setPendingBillData(null);
+    setCurrentView(AppView.DASHBOARD);
   };
 
-  const handleDeleteBill = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteBill = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Delete this bill record?')) {
-      try {
-        await StorageService.deleteBill(id);
-        const updatedBills = await StorageService.getBills();
-        setBills(updatedBills);
-        // If deleted bill was viewed, close view
-        if (selectedBill?.id === id) setSelectedBill(null);
-      } catch (error) {
-        console.error('Failed to delete bill:', error);
-        alert('Failed to delete bill. Please try again.');
-      }
+      StorageService.deleteBill(id);
+      setBills(StorageService.getBills());
+      // If deleted bill was viewed, close view
+      if (selectedBill?.id === id) setSelectedBill(null);
     }
   }
 
