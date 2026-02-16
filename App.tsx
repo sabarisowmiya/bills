@@ -151,7 +151,7 @@ const App: React.FC = () => {
     <Layout currentView={currentView} onChangeView={(view) => {
       // Handle Logout check if view is technically a logout action (optional, but let's keep it simple)
       // If we added a logout button in sidebar, we would handle it here or pass the handleLogout prop
-      if (view === 'LOGOUT' as any) {
+      if (view === AppView.LOGOUT) {
         handleLogout();
         return;
       }

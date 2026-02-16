@@ -46,4 +46,5 @@ export enum AppView {
   PRODUCTS = 'PRODUCTS',
   SHOPS = 'SHOPS',
   SETTINGS = 'SETTINGS',
+  LOGOUT = 'LOGOUT',
 }
