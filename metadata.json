@@ -1,0 +1,5 @@
+{
+  "name": "BillGenius Analytics",
+  "description": "A classic, clean web application for digitizing retail bills, managing product costs, and visualizing profit analytics using Gemini AI.",
+  "requestFramePermissions": []
+}
